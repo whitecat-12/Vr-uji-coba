@@ -26,9 +26,10 @@
 <body>
   <div class="loading">Loading AR Galaxy...</div>
 <script type="module">
-  import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.165/build/three.module.js';
-  import { ARButton } from 'https://cdn.jsdelivr.net/npm/three@0.165/examples/jsm/webxr/ARButton.js';
-  import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.165/examples/jsm/loaders/GLTFLoader.js';
+  // Gunakan URL CDN yang lebih stabil
+  import * as THREE from 'https://unpkg.com/three@0.164.1/build/three.module.js';
+  import { ARButton } from 'https://unpkg.com/three@0.164.1/examples/jsm/webxr/ARButton.js';
+  import { GLTFLoader } from 'https://unpkg.com/three@0.164.1/examples/jsm/loaders/GLTFLoader.js';
 
   // Scene + Camera
   const scene = new THREE.Scene();
