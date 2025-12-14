@@ -34,350 +34,384 @@
       max-width: 250px;
       display: none;
     }
+    .ar-button {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 12px 24px;
+      background: rgba(0, 150, 255, 0.8);
+      color: white;
+      border: none;
+      border-radius: 30px;
+      font-size: 16px;
+      cursor: pointer;
+      z-index: 1000;
+      font-family: Arial, sans-serif;
+    }
   </style>
 </head>
 <body>
   <div class="loading">Loading AR Galaxy...</div>
   <div class="info-panel" id="infoPanel"></div>
-<script type="module">
-  import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.165/build/three.module.js';
-  import { ARButton } from 'https://cdn.jsdelivr.net/npm/three@0.165/examples/jsm/webxr/ARButton.js';
-  import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.165/examples/jsm/loaders/GLTFLoader.js';
+  <script type="module">
+    // Import Three.js dari CDN - menggunakan versi yang lebih spesifik
+    import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js';
+    
+    // Import untuk WebXR
+    import { ARButton } from 'https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/webxr/ARButton.js';
+    import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/loaders/GLTFLoader.js';
+    import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/controls/OrbitControls.js';
 
-  // Scene + Camera
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera();
+    // Scene + Camera
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 0, 5);
 
-  // Renderer
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.xr.enabled = true;
-  document.body.appendChild(renderer.domElement);
+    // Renderer
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.xr.enabled = true;
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    document.body.appendChild(renderer.domElement);
 
-  // Remove loading text
-  document.querySelector('.loading').remove();
+    // Controls untuk mode non-AR
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
 
-  // AR Button
-  document.body.appendChild(ARButton.createButton(renderer, { requiredFeatures: ['hit-test'] }));
+    // Remove loading text
+    document.querySelector('.loading').remove();
 
-  // GLTF Loader
-  const loader = new GLTFLoader();
-
-  // Planet configuration with GLB files - PASTIKAN FILE INI ADA DI FOLDER YANG SAMA
-  const planets = [
-    { 
-      name: 'Mercury', 
-      modelPath: 'models/mercury.glb', // File GLB Mercury Anda
-      scale: 0.03, 
-      distance: 0.25, 
-      speed: 0.02,
-      info: 'Planet terkecil di tata surya'
-    },
-    { 
-      name: 'Venus', 
-      modelPath: 'models/venus.glb', // File GLB Venus Anda
-      scale: 0.05, 
-      distance: 0.4, 
-      speed: 0.015,
-      info: 'Planet terpanas dengan atmosfer tebal'
-    },
-    { 
-      name: 'Earth', 
-      modelPath: 'models/earth.glb', // File GLB Earth Anda
-      scale: 0.05, 
-      distance: 0.55, 
-      speed: 0.01,
-      info: 'Planet biru dengan kehidupan'
-    },
-    { 
-      name: 'Mars', 
-      modelPath: 'models/mars.glb', // File GLB Mars Anda
-      scale: 0.04, 
-      distance: 0.7, 
-      speed: 0.008,
-      info: 'Planet merah dengan gunung tertinggi'
-    },
-    { 
-      name: 'Jupiter', 
-      modelPath: 'models/jupiter.glb', // File GLB Jupiter Anda
-      scale: 0.1, 
-      distance: 0.9, 
-      speed: 0.005,
-      info: 'Planet terbesar dengan Badai Merah Raksasa'
-    },
-    { 
-      name: 'Saturn', 
-      modelPath: 'models/saturn.glb', // File GLB Saturn Anda
-      scale: 0.09, 
-      distance: 1.1, 
-      speed: 0.003,
-      info: 'Planet dengan cincin yang indah'
-    }
-  ];
-
-  const planetMeshes = [];
-  let sun = null;
-
-  // Function to load GLB model
-  function loadPlanetModel(planetConfig, index) {
-    return new Promise((resolve, reject) => {
-      loader.load(
-        planetConfig.modelPath,
-        (gltf) => {
-          const model = gltf.scene;
-          
-          // Scale the model
-          model.scale.setScalar(planetConfig.scale);
-          
-          // Position in orbit
-          model.position.x = planetConfig.distance;
-          model.position.y = 0;
-          model.position.z = -0.8;
-          
-          // Store user data
-          model.userData = {
-            name: planetConfig.name,
-            originalDistance: planetConfig.distance,
-            speed: planetConfig.speed,
-            angle: Math.random() * Math.PI * 2,
-            info: planetConfig.info
-          };
-          
-          // Add click/tap interaction
-          model.userData.originalScale = planetConfig.scale;
-          model.userData.isScaled = false;
-          
-          // Add bounding box for interaction
-          const box = new THREE.Box3().setFromObject(model);
-          const size = box.getSize(new THREE.Vector3());
-          const radius = Math.max(size.x, size.y, size.z) * 0.5;
-          
-          const helper = new THREE.Mesh(
-            new THREE.SphereGeometry(radius * 1.5),
-            new THREE.MeshBasicMaterial({ 
-              visible: false,
-              transparent: true,
-              opacity: 0
-            })
-          );
-          helper.position.copy(model.position);
-          helper.userData = model.userData;
-          helper.add(model);
-          
-          scene.add(helper);
-          planetMeshes.push(helper);
-          
-          console.log(`Loaded: ${planetConfig.name}`);
-          resolve();
-        },
-        undefined,
-        (error) => {
-          console.error(`Error loading ${planetConfig.name}:`, error);
-          // Fallback to basic sphere if model fails to load
-          createFallbackPlanet(planetConfig);
-          resolve();
-        }
-      );
+    // AR Button
+    const arButton = ARButton.createButton(renderer, { 
+      requiredFeatures: ['hit-test'] 
     });
-  }
+    arButton.className = 'ar-button';
+    document.body.appendChild(arButton);
 
-  // Fallback function if GLB fails to load
-  function createFallbackPlanet(planetConfig) {
-    const geometry = new THREE.SphereGeometry(planetConfig.scale, 32, 32);
-    const material = new THREE.MeshStandardMaterial({ 
-      color: getFallbackColor(planetConfig.name)
-    });
-    const mesh = new THREE.Mesh(geometry, material);
-    
-    mesh.position.x = planetConfig.distance;
-    mesh.userData = {
-      name: planetConfig.name,
-      originalDistance: planetConfig.distance,
-      speed: planetConfig.speed,
-      angle: Math.random() * Math.PI * 2,
-      info: planetConfig.info,
-      originalScale: planetConfig.scale,
-      isScaled: false
-    };
-    
-    scene.add(mesh);
-    planetMeshes.push(mesh);
-    console.log(`Created fallback for: ${planetConfig.name}`);
-  }
+    // GLTF Loader
+    const loader = new GLTFLoader();
 
-  // Helper function for fallback colors
-  function getFallbackColor(planetName) {
-    const colors = {
-      'Mercury': 0x8c8c8c,
-      'Venus': 0xe6b87e,
-      'Earth': 0x6b93d6,
-      'Mars': 0xc1440e,
-      'Jupiter': 0xc19e6b,
-      'Saturn': 0xe3d2a6
-    };
-    return colors[planetName] || 0xffffff;
-  }
+    // Planet configuration dengan fallback ke sphere jika model tidak ada
+    const planets = [
+      { 
+        name: 'Mercury', 
+        modelPath: 'models/mercury.glb',
+        fallbackColor: 0x8c8c8c,
+        scale: 0.3, 
+        distance: 2.5, 
+        speed: 0.02,
+        info: 'Planet terkecil di tata surya. Diameter: 4,879 km'
+      },
+      { 
+        name: 'Venus', 
+        modelPath: 'models/venus.glb',
+        fallbackColor: 0xe6b87e,
+        scale: 0.5, 
+        distance: 4.0, 
+        speed: 0.015,
+        info: 'Planet terpanas dengan atmosfer tebal. Suhu: 462°C'
+      },
+      { 
+        name: 'Earth', 
+        modelPath: 'models/earth.glb',
+        fallbackColor: 0x6b93d6,
+        scale: 0.5, 
+        distance: 5.5, 
+        speed: 0.01,
+        info: 'Planet biru dengan kehidupan. 71% permukaan air'
+      },
+      { 
+        name: 'Mars', 
+        modelPath: 'models/mars.glb',
+        fallbackColor: 0xc1440e,
+        scale: 0.4, 
+        distance: 7.0, 
+        speed: 0.008,
+        info: 'Planet merah dengan gunung tertinggi. Olympus Mons: 21 km'
+      },
+      { 
+        name: 'Jupiter', 
+        modelPath: 'models/jupiter.glb',
+        fallbackColor: 0xc19e6b,
+        scale: 1.0, 
+        distance: 9.0, 
+        speed: 0.005,
+        info: 'Planet terbesar dengan Badai Merah Raksasa. Diameter: 142,984 km'
+      },
+      { 
+        name: 'Saturn', 
+        modelPath: 'models/saturn.glb',
+        fallbackColor: 0xe3d2a6,
+        scale: 0.9, 
+        distance: 11.0, 
+        speed: 0.003,
+        info: 'Planet dengan cincin yang indah. Cincin terbuat dari es dan batu'
+      }
+    ];
 
-  // Create galaxy with 3D models
-  async function createGalaxy() {
-    // === Central Star (Sun) ===
-    const sunGeometry = new THREE.SphereGeometry(0.15, 64, 64);
-    const sunMaterial = new THREE.MeshBasicMaterial({ 
-      color: 0xffcc00,
-      emissive: 0xffaa00,
-      emissiveIntensity: 0.8
-    });
-    sun = new THREE.Mesh(sunGeometry, sunMaterial);
-    sun.position.set(0, 0, -0.8);
-    scene.add(sun);
+    const planetMeshes = [];
+    let sun = null;
+    let isInAR = false;
 
-    // Add glow effect to sun
-    const sunGlowGeometry = new THREE.SphereGeometry(0.18, 32, 32);
-    const sunGlowMaterial = new THREE.MeshBasicMaterial({
-      color: 0xff9900,
-      transparent: true,
-      opacity: 0.3
-    });
-    const sunGlow = new THREE.Mesh(sunGlowGeometry, sunGlowMaterial);
-    sun.add(sunGlow);
-
-    // === Load all planet models ===
-    const loadPromises = planets.map((planet, index) => 
-      loadPlanetModel(planet, index)
-    );
-    
-    await Promise.all(loadPromises);
-    console.log('All planets loaded');
-
-    // === Stars (Background) ===
-    const starGeometry = new THREE.BufferGeometry();
-    const starCount = 1000;
-    const positions = new Float32Array(starCount * 3);
-    
-    for (let i = 0; i < starCount * 3; i += 3) {
-      positions[i] = (Math.random() - 0.5) * 10;
-      positions[i + 1] = (Math.random() - 0.5) * 10;
-      positions[i + 2] = (Math.random() - 0.5) * 10;
-    }
-    
-    starGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    
-    const starMaterial = new THREE.PointsMaterial({
-      color: 0xffffff,
-      size: 0.02,
-      transparent: true
-    });
-    
-    const stars = new THREE.Points(starGeometry, starMaterial);
-    scene.add(stars);
-
-    // === Nebula Effect ===
-    const nebulaGeometry = new THREE.SphereGeometry(1.5, 32, 32);
-    const nebulaMaterial = new THREE.MeshBasicMaterial({
-      color: 0x4a0b7a,
-      transparent: true,
-      opacity: 0.1,
-      side: THREE.BackSide
-    });
-    const nebula = new THREE.Mesh(nebulaGeometry, nebulaMaterial);
-    scene.add(nebula);
-
-    return { sun, planetMeshes, stars };
-  }
-
-  // Lighting
-  const ambientLight = new THREE.AmbientLight(0x333333);
-  scene.add(ambientLight);
-
-  const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-  directionalLight.position.set(5, 3, 5);
-  scene.add(directionalLight);
-
-  // Raycaster for interaction
-  const raycaster = new THREE.Raycaster();
-  const mouse = new THREE.Vector2();
-  let selectedPlanet = null;
-
-  // Handle click/tap
-  function onDocumentClick(event) {
-    event.preventDefault();
-    
-    // Calculate mouse position in normalized device coordinates
-    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-    
-    // Update the picking ray with the camera and mouse position
-    raycaster.setFromCamera(mouse, camera);
-    
-    // Calculate objects intersecting the picking ray
-    const intersects = raycaster.intersectObjects(planetMeshes);
-    
-    if (intersects.length > 0) {
-      const planet = intersects[0].object;
+    // Function untuk membuat planet fallback
+    function createFallbackPlanet(planetConfig) {
+      const geometry = new THREE.SphereGeometry(planetConfig.scale, 32, 32);
+      const material = new THREE.MeshStandardMaterial({ 
+        color: planetConfig.fallbackColor,
+        roughness: 0.8,
+        metalness: 0.2
+      });
+      const mesh = new THREE.Mesh(geometry, material);
       
-      // Reset previous selection
-      if (selectedPlanet && selectedPlanet !== planet) {
-        selectedPlanet.scale.setScalar(selectedPlanet.userData.originalScale);
-        selectedPlanet.userData.isScaled = false;
+      const angle = Math.random() * Math.PI * 2;
+      mesh.position.x = Math.cos(angle) * planetConfig.distance;
+      mesh.position.z = Math.sin(angle) * planetConfig.distance;
+      
+      mesh.userData = {
+        name: planetConfig.name,
+        originalDistance: planetConfig.distance,
+        speed: planetConfig.speed,
+        angle: angle,
+        info: planetConfig.info,
+        originalScale: planetConfig.scale,
+        isScaled: false,
+        isFallback: true
+      };
+      
+      scene.add(mesh);
+      planetMeshes.push(mesh);
+      console.log(`Created fallback for: ${planetConfig.name}`);
+      
+      return Promise.resolve();
+    }
+
+    // Function untuk load planet model
+    function loadPlanetModel(planetConfig) {
+      return new Promise((resolve, reject) => {
+        // Coba load model GLB
+        loader.load(
+          planetConfig.modelPath,
+          (gltf) => {
+            const model = gltf.scene;
+            model.scale.setScalar(planetConfig.scale);
+            
+            const angle = Math.random() * Math.PI * 2;
+            model.position.x = Math.cos(angle) * planetConfig.distance;
+            model.position.z = Math.sin(angle) * planetConfig.distance;
+            
+            model.userData = {
+              name: planetConfig.name,
+              originalDistance: planetConfig.distance,
+              speed: planetConfig.speed,
+              angle: angle,
+              info: planetConfig.info,
+              originalScale: planetConfig.scale,
+              isScaled: false,
+              isFallback: false
+            };
+            
+            scene.add(model);
+            planetMeshes.push(model);
+            console.log(`Loaded: ${planetConfig.name}`);
+            resolve();
+          },
+          undefined,
+          (error) => {
+            console.warn(`Failed to load ${planetConfig.name}, using fallback:`, error.message);
+            // Gunakan fallback
+            createFallbackPlanet(planetConfig).then(resolve);
+          }
+        );
+      });
+    }
+
+    // Create galaxy
+    async function createGalaxy() {
+      // Central Star (Sun)
+      const sunGeometry = new THREE.SphereGeometry(1, 64, 64);
+      const sunMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0xffcc00,
+        emissive: 0xffaa00,
+        emissiveIntensity: 0.8
+      });
+      sun = new THREE.Mesh(sunGeometry, sunMaterial);
+      scene.add(sun);
+
+      // Add glow effect to sun
+      const sunGlowGeometry = new THREE.SphereGeometry(1.3, 32, 32);
+      const sunGlowMaterial = new THREE.MeshBasicMaterial({
+        color: 0xff9900,
+        transparent: true,
+        opacity: 0.3,
+        side: THREE.BackSide
+      });
+      const sunGlow = new THREE.Mesh(sunGlowGeometry, sunGlowMaterial);
+      sun.add(sunGlow);
+
+      // Load all planets
+      const loadPromises = planets.map(planet => loadPlanetModel(planet));
+      await Promise.all(loadPromises);
+
+      // Background stars
+      const starCount = 2000;
+      const starsGeometry = new THREE.BufferGeometry();
+      const starPositions = new Float32Array(starCount * 3);
+      const starSizes = new Float32Array(starCount);
+      
+      for (let i = 0; i < starCount; i++) {
+        const i3 = i * 3;
+        // Random position in a sphere
+        const radius = 50;
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos(2 * Math.random() - 1);
+        
+        starPositions[i3] = radius * Math.sin(phi) * Math.cos(theta);
+        starPositions[i3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+        starPositions[i3 + 2] = radius * Math.cos(phi);
+        
+        starSizes[i] = Math.random() * 2;
       }
       
-      // Toggle scale
-      if (planet.userData.isScaled) {
+      starsGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+      starsGeometry.setAttribute('size', new THREE.BufferAttribute(starSizes, 1));
+      
+      const starsMaterial = new THREE.PointsMaterial({
+        color: 0xffffff,
+        size: 0.1,
+        sizeAttenuation: true,
+        transparent: true
+      });
+      
+      const stars = new THREE.Points(starsGeometry, starsMaterial);
+      scene.add(stars);
+
+      // Lighting
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+      scene.add(ambientLight);
+
+      const sunLight = new THREE.PointLight(0xffcc00, 2, 100);
+      sun.add(sunLight);
+
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+      directionalLight.position.set(10, 10, 5);
+      scene.add(directionalLight);
+
+      console.log('Galaxy created successfully!');
+      return { sun, planetMeshes, stars };
+    }
+
+    // Raycaster untuk interaksi
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    let selectedPlanet = null;
+
+    // Handle click/tap
+    function onDocumentClick(event) {
+      if (isInAR) return; // Jangan handle click di mode AR
+      
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+      
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(planetMeshes);
+      
+      if (intersects.length > 0) {
+        const planet = intersects[0].object;
+        
+        // Reset previous selection
+        if (selectedPlanet && selectedPlanet !== planet) {
+          selectedPlanet.scale.setScalar(selectedPlanet.userData.originalScale);
+          selectedPlanet.userData.isScaled = false;
+        }
+        
+        // Toggle scale
+        if (planet.userData.isScaled) {
+          planet.scale.setScalar(planet.userData.originalScale);
+          planet.userData.isScaled = false;
+          document.getElementById('infoPanel').style.display = 'none';
+          selectedPlanet = null;
+        } else {
+          planet.scale.setScalar(planet.userData.originalScale * 1.5);
+          planet.userData.isScaled = true;
+          document.getElementById('infoPanel').style.display = 'block';
+          document.getElementById('infoPanel').innerHTML = `
+            <strong>${planet.userData.name}</strong><br>
+            ${planet.userData.info}
+          `;
+          selectedPlanet = planet;
+        }
+      } else {
+        // Clicked on empty space
+        if (selectedPlanet) {
+          selectedPlanet.scale.setScalar(selectedPlanet.userData.originalScale);
+          selectedPlanet.userData.isScaled = false;
+          document.getElementById('infoPanel').style.display = 'none';
+          selectedPlanet = null;
+        }
+      }
+    }
+
+    // Create galaxy
+    await createGalaxy();
+
+    // Add event listeners
+    window.addEventListener('click', onDocumentClick, false);
+    window.addEventListener('resize', onWindowResize);
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    // Animation loop
+    function animate() {
+      requestAnimationFrame(animate);
+      
+      if (!isInAR) {
+        controls.update();
+      }
+      
+      // Rotate sun
+      if (sun) sun.rotation.y += 0.005;
+      
+      // Animate planets in orbit
+      planetMeshes.forEach(planet => {
+        planet.userData.angle += planet.userData.speed;
+        planet.position.x = Math.cos(planet.userData.angle) * planet.userData.originalDistance;
+        planet.position.z = Math.sin(planet.userData.angle) * planet.userData.originalDistance;
+        
+        // Rotate planet
+        planet.rotation.y += 0.01;
+      });
+      
+      renderer.render(scene, camera);
+    }
+
+    // Handle XR session changes
+    renderer.xr.addEventListener('sessionstart', () => {
+      console.log('AR session started');
+      isInAR = true;
+      document.getElementById('infoPanel').style.display = 'none';
+      
+      // Reset planet scales saat masuk AR
+      planetMeshes.forEach(planet => {
         planet.scale.setScalar(planet.userData.originalScale);
         planet.userData.isScaled = false;
-        document.getElementById('infoPanel').style.display = 'none';
-        selectedPlanet = null;
-      } else {
-        planet.scale.setScalar(planet.userData.originalScale * 1.5);
-        planet.userData.isScaled = true;
-        document.getElementById('infoPanel').style.display = 'block';
-        document.getElementById('infoPanel').innerHTML = `
-          <strong>${planet.userData.name}</strong><br>
-          ${planet.userData.info}
-        `;
-        selectedPlanet = planet;
-      }
-    } else {
-      // Clicked on empty space
-      if (selectedPlanet) {
-        selectedPlanet.scale.setScalar(selectedPlanet.userData.originalScale);
-        selectedPlanet.userData.isScaled = false;
-        document.getElementById('infoPanel').style.display = 'none';
-        selectedPlanet = null;
-      }
-    }
-  }
-
-  // Create the galaxy
-  const galaxy = await createGalaxy();
-
-  // Add event listener for clicks
-  window.addEventListener('click', onDocumentClick, false);
-
-  // Animation
-  renderer.setAnimationLoop(() => {
-    // Rotate sun
-    if (sun) sun.rotation.y += 0.005;
-    
-    // Animate planets in orbit
-    planetMeshes.forEach(planet => {
-      planet.userData.angle += planet.userData.speed;
-      planet.position.x = Math.cos(planet.userData.angle) * planet.userData.originalDistance;
-      planet.position.z = Math.sin(planet.userData.angle) * planet.userData.originalDistance - 0.8;
-      
-      // Rotate the model itself
-      planet.rotation.y += 0.01;
+      });
+      selectedPlanet = null;
     });
-    
-    renderer.render(scene, camera);
-  });
 
-  // Handle window resize
-  window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-  });
-</script>
+    renderer.xr.addEventListener('sessionend', () => {
+      console.log('AR session ended');
+      isInAR = false;
+    });
+
+    // Start animation
+    animate();
+  </script>
 </body>
 </html>
