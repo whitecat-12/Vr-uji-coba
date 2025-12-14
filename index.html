@@ -1,831 +1,383 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistem Tata Surya WebXR</title>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/loaders/GLTFLoader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/webxr/XRControllerModelFactory.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/webxr/XRHandModelFactory.js"></script>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(to bottom, #000428, #004e92);
-            color: #fff;
-            overflow: hidden;
-        }
-        
-        #container {
-            position: relative;
-            width: 100%;
-            height: 100vh;
-        }
-        
-        #info {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            background-color: rgba(0, 0, 0, 0.7);
-            padding: 15px;
-            border-radius: 10px;
-            max-width: 350px;
-            z-index: 100;
-        }
-        
-        #info h1 {
-            font-size: 24px;
-            margin-bottom: 10px;
-            color: #FFD700;
-        }
-        
-        #info p {
-            margin-bottom: 15px;
-            line-height: 1.5;
-        }
-        
-        .control-panel {
-            position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            gap: 10px;
-            z-index: 100;
-        }
-        
-        button {
-            background-color: rgba(0, 30, 60, 0.8);
-            color: white;
-            border: 2px solid #4dabf7;
-            border-radius: 50px;
-            padding: 12px 24px;
-            font-size: 16px;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        
-        button:hover {
-            background-color: rgba(77, 171, 247, 0.8);
-            transform: translateY(-2px);
-        }
-        
-        button:active {
-            transform: translateY(0);
-        }
-        
-        .vr-mode {
-            background-color: rgba(220, 0, 110, 0.8);
-            border-color: #ff6bcb;
-        }
-        
-        #loading {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 24px;
-            color: #FFD700;
-            z-index: 200;
-        }
-        
-        #status {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background-color: rgba(0, 0, 0, 0.7);
-            padding: 10px 15px;
-            border-radius: 10px;
-            z-index: 100;
-        }
-        
-        .planet-info {
-            position: absolute;
-            bottom: 100px;
-            left: 20px;
-            background-color: rgba(0, 0, 0, 0.8);
-            padding: 15px;
-            border-radius: 10px;
-            max-width: 300px;
-            z-index: 100;
-            display: none;
-        }
-        
-        .planet-info.active {
-            display: block;
-        }
-        
-        .planet-name {
-            font-size: 20px;
-            color: #4dabf7;
-            margin-bottom: 5px;
-        }
-        
-        @media (max-width: 768px) {
-            #info {
-                max-width: 280px;
-                padding: 10px;
-                font-size: 14px;
-            }
-            
-            .control-panel {
-                flex-wrap: wrap;
-                justify-content: center;
-            }
-            
-            button {
-                padding: 10px 16px;
-                font-size: 14px;
-            }
-        }
-    </style>
+  <meta charset="utf-8">
+  <title>AR Galaxy</title>
+  <style>
+    body { 
+      margin: 0; 
+      overflow: hidden; 
+      background-color: #000;
+    }
+    canvas { 
+      display: block; 
+    }
+    .loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: white;
+      font-family: Arial, sans-serif;
+      font-size: 18px;
+    }
+    .info-panel {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      color: white;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 10px;
+      border-radius: 5px;
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      max-width: 250px;
+      display: none;
+    }
+  </style>
 </head>
 <body>
-    <div id="container">
-        <div id="info">
-            <h1>Sistem Tata Surya WebXR</h1>
-            <p>Simulasi tata surya dengan planet-planet dan matahari menggunakan model GLB.</p>
-            <p>Gunakan mouse untuk melihat sekitar, scroll untuk zoom. Klik tombol "Mode VR" untuk pengalaman imersif.</p>
-            <p>Klik pada planet untuk melihat informasinya.</p>
-        </div>
-        
-        <div id="status">
-            Mode: Desktop
-        </div>
-        
-        <div class="planet-info" id="planetInfo">
-            <div class="planet-name" id="planetName">Matahari</div>
-            <div id="planetDescription">Bintang di pusat tata surya kita</div>
-        </div>
-        
-        <div id="loading">Memuat model 3D...</div>
-        
-        <div class="control-panel">
-            <button id="vrButton">Mode VR</button>
-            <button id="autoRotate">Rotasi: ON</button>
-            <button id="resetView">Reset Posisi</button>
-            <button id="toggleOrbits">Tampilkan Orbit</button>
-            <button id="toggleDebug">Mode Debug</button>
-        </div>
-    </div>
+  <div class="loading">Loading AR Galaxy...</div>
+  <div class="info-panel" id="infoPanel"></div>
+<script type="module">
+  import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.165/build/three.module.js';
+  import { ARButton } from 'https://cdn.jsdelivr.net/npm/three@0.165/examples/jsm/webxr/ARButton.js';
+  import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.165/examples/jsm/loaders/GLTFLoader.js';
 
-    <script>
-        // Konfigurasi planet dengan warna yang lebih realistis
-        const planetsConfig = [
-            { 
-                name: 'matahari', 
-                scale: 3.0, 
-                orbitRadius: 0, 
-                rotationSpeed: 0.002, 
-                orbitSpeed: 0,
-                color: 0xFFD700,
-                texture: null
-            },
-            { 
-                name: 'merkurius', 
-                scale: 0.5, 
-                orbitRadius: 12, 
-                rotationSpeed: 0.015, 
-                orbitSpeed: 0.04,
-                color: 0x8C7853,
-                texture: null
-            },
-            { 
-                name: 'venus', 
-                scale: 0.9, 
-                orbitRadius: 18, 
-                rotationSpeed: 0.01, 
-                orbitSpeed: 0.015,
-                color: 0xFFC649,
-                texture: null
-            },
-            { 
-                name: 'bumi', 
-                scale: 1.0, 
-                orbitRadius: 25, 
-                rotationSpeed: 0.02, 
-                orbitSpeed: 0.01,
-                color: 0x6B93D6,
-                texture: null
-            },
-            { 
-                name: 'mars', 
-                scale: 0.8, 
-                orbitRadius: 32, 
-                rotationSpeed: 0.018, 
-                orbitSpeed: 0.008,
-                color: 0xFF0000,
-                texture: null
-            },
-            { 
-                name: 'jupiter', 
-                scale: 2.2, 
-                orbitRadius: 42, 
-                rotationSpeed: 0.025, 
-                orbitSpeed: 0.004,
-                color: 0xFFA726,
-                texture: null
-            },
-            { 
-                name: 'saturnus', 
-                scale: 1.9, 
-                orbitRadius: 52, 
-                rotationSpeed: 0.022, 
-                orbitSpeed: 0.003,
-                color: 0xF4D03F,
-                texture: null
-            },
-            { 
-                name: 'uranus', 
-                scale: 1.4, 
-                orbitRadius: 62, 
-                rotationSpeed: 0.015, 
-                orbitSpeed: 0.002,
-                color: 0x4FC3F7,
-                texture: null
-            },
-            { 
-                name: 'neptunus', 
-                scale: 1.4, 
-                orbitRadius: 72, 
-                rotationSpeed: 0.016, 
-                orbitSpeed: 0.001,
-                color: 0x3949AB,
-                texture: null
-            }
-        ];
-        
-        // State aplikasi
-        let scene, camera, renderer, controls;
-        let planets = [];
-        let orbits = [];
-        let mixer;
-        let clock = new THREE.Clock();
-        let currentXRMode = false;
-        let autoRotate = true;
-        let showOrbits = true;
-        let debugMode = false;
-        let raycaster = new THREE.Raycaster();
-        let mouse = new THREE.Vector2();
-        
-        // Model GLB yang akan dimuat - SESUAIKAN DENGAN STRUKTUR FOLDER ANDA
-        // Jika model tidak ditemukan, akan dibuat versi sederhana
-        const modelPaths = {
-            // Contoh path - sesuaikan dengan struktur folder Anda
-            matahari: 'models/sun.glb',
-            merkurius: 'models/mercury.glb',
-            venus: 'models/venus.glb',
-            bumi: 'models/earth.glb',
-            mars: 'models/mars.glb',
-            jupiter: 'models/jupiter.glb',
-            saturnus: 'models/saturn.glb',
-            uranus: 'models/uranus.glb',
-            neptunus: 'models/neptune.glb'
-        };
-        
-        // Fallback: buat planet geometri sederhana jika model tidak tersedia
-        const createFallbackPlanet = (config) => {
-            let planetMesh;
-            
-            if (config.name === 'saturnus') {
-                // Planet dengan cincin (Saturnus)
-                const sphereGeometry = new THREE.SphereGeometry(config.scale, 32, 32);
-                const sphereMaterial = new THREE.MeshPhongMaterial({ 
-                    color: config.color,
-                    shininess: 30
-                });
-                const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-                
-                // Cincin Saturnus
-                const ringGeometry = new THREE.RingGeometry(config.scale * 1.3, config.scale * 2.2, 32);
-                const ringMaterial = new THREE.MeshPhongMaterial({ 
-                    color: 0xF4D03F,
-                    side: THREE.DoubleSide,
-                    transparent: true,
-                    opacity: 0.7
-                });
-                const ring = new THREE.Mesh(ringGeometry, ringMaterial);
-                ring.rotation.x = Math.PI / 2;
-                
-                const group = new THREE.Group();
-                group.add(sphere);
-                group.add(ring);
-                planetMesh = group;
-            } else if (config.name === 'matahari') {
-                // Matahari dengan efek cahaya
-                const geometry = new THREE.SphereGeometry(config.scale, 64, 64);
-                const material = new THREE.MeshBasicMaterial({ 
-                    color: config.color,
-                    emissive: 0xFF4500,
-                    emissiveIntensity: 0.5
-                });
-                planetMesh = new THREE.Mesh(geometry, material);
-                
-                // Tambahkan point light untuk efek matahari
-                const sunLight = new THREE.PointLight(config.color, 2, 100);
-                planetMesh.add(sunLight);
-                
-                // Efek korona matahari
-                const coronaGeometry = new THREE.SphereGeometry(config.scale * 1.1, 32, 32);
-                const coronaMaterial = new THREE.MeshBasicMaterial({
-                    color: 0xFF4500,
-                    transparent: true,
-                    opacity: 0.3,
-                    side: THREE.BackSide
-                });
-                const corona = new THREE.Mesh(coronaGeometry, coronaMaterial);
-                planetMesh.add(corona);
-            } else {
-                // Planet biasa
-                const geometry = new THREE.SphereGeometry(config.scale, 32, 32);
-                const material = new THREE.MeshPhongMaterial({ 
-                    color: config.color,
-                    shininess: 30
-                });
-                planetMesh = new THREE.Mesh(geometry, material);
-            }
-            
-            return planetMesh;
-        };
-        
-        // Inisialisasi scene
-        function init() {
-            // Scene
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x000011);
-            scene.fog = new THREE.Fog(0x000011, 50, 300);
-            
-            // Camera
-            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
-            camera.position.set(0, 40, 120);
-            
-            // Renderer
-            renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(window.devicePixelRatio);
-            renderer.shadowMap.enabled = true;
-            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-            renderer.xr.enabled = true;
-            document.getElementById('container').appendChild(renderer.domElement);
-            
-            // OrbitControls (untuk mode desktop)
-            controls = new THREE.OrbitControls(camera, renderer.domElement);
-            controls.enableDamping = true;
-            controls.dampingFactor = 0.05;
-            controls.minDistance = 20;
-            controls.maxDistance = 500;
-            controls.maxPolarAngle = Math.PI * 0.9;
-            
-            // Pencahayaan
-            const ambientLight = new THREE.AmbientLight(0x333333, 0.5);
-            scene.add(ambientLight);
-            
-            const directionalLight = new THREE.DirectionalLight(0xFFFFFF, 1);
-            directionalLight.position.set(10, 20, 15);
-            directionalLight.castShadow = true;
-            directionalLight.shadow.camera.left = -50;
-            directionalLight.shadow.camera.right = 50;
-            directionalLight.shadow.camera.top = 50;
-            directionalLight.shadow.camera.bottom = -50;
-            scene.add(directionalLight);
-            
-            // Bintang-bintang di latar belakang
-            createStars();
-            
-            // Muat planet
-            loadPlanets();
-            
-            // Event listeners
-            window.addEventListener('resize', onWindowResize);
-            document.getElementById('vrButton').addEventListener('click', toggleVR);
-            document.getElementById('autoRotate').addEventListener('click', toggleAutoRotate);
-            document.getElementById('resetView').addEventListener('click', resetView);
-            document.getElementById('toggleOrbits').addEventListener('click', toggleOrbits);
-            document.getElementById('toggleDebug').addEventListener('click', toggleDebug);
-            
-            // Event untuk klik pada planet
-            renderer.domElement.addEventListener('click', onCanvasClick);
-            
-            // Event untuk hover pada planet
-            renderer.domElement.addEventListener('mousemove', onMouseMove);
-            
-            // Sembunyikan loading setelah semua planet dimuat
-            setTimeout(() => {
-                document.getElementById('loading').style.display = 'none';
-            }, 3000);
-            
-            // Mulai animasi
-            animate();
+  // Scene + Camera
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera();
+
+  // Renderer
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.xr.enabled = true;
+  document.body.appendChild(renderer.domElement);
+
+  // Remove loading text
+  document.querySelector('.loading').remove();
+
+  // AR Button
+  document.body.appendChild(ARButton.createButton(renderer, { requiredFeatures: ['hit-test'] }));
+
+  // GLTF Loader
+  const loader = new GLTFLoader();
+
+  // Planet configuration with GLB files - PASTIKAN FILE INI ADA DI FOLDER YANG SAMA
+  const planets = [
+    { 
+      name: 'Mercury', 
+      modelPath: 'models/mercury.glb', // File GLB Mercury Anda
+      scale: 0.03, 
+      distance: 0.25, 
+      speed: 0.02,
+      info: 'Planet terkecil di tata surya'
+    },
+    { 
+      name: 'Venus', 
+      modelPath: 'models/venus.glb', // File GLB Venus Anda
+      scale: 0.05, 
+      distance: 0.4, 
+      speed: 0.015,
+      info: 'Planet terpanas dengan atmosfer tebal'
+    },
+    { 
+      name: 'Earth', 
+      modelPath: 'models/earth.glb', // File GLB Earth Anda
+      scale: 0.05, 
+      distance: 0.55, 
+      speed: 0.01,
+      info: 'Planet biru dengan kehidupan'
+    },
+    { 
+      name: 'Mars', 
+      modelPath: 'models/mars.glb', // File GLB Mars Anda
+      scale: 0.04, 
+      distance: 0.7, 
+      speed: 0.008,
+      info: 'Planet merah dengan gunung tertinggi'
+    },
+    { 
+      name: 'Jupiter', 
+      modelPath: 'models/jupiter.glb', // File GLB Jupiter Anda
+      scale: 0.1, 
+      distance: 0.9, 
+      speed: 0.005,
+      info: 'Planet terbesar dengan Badai Merah Raksasa'
+    },
+    { 
+      name: 'Saturn', 
+      modelPath: 'models/saturn.glb', // File GLB Saturn Anda
+      scale: 0.09, 
+      distance: 1.1, 
+      speed: 0.003,
+      info: 'Planet dengan cincin yang indah'
+    }
+  ];
+
+  const planetMeshes = [];
+  let sun = null;
+
+  // Function to load GLB model
+  function loadPlanetModel(planetConfig, index) {
+    return new Promise((resolve, reject) => {
+      loader.load(
+        planetConfig.modelPath,
+        (gltf) => {
+          const model = gltf.scene;
+          
+          // Scale the model
+          model.scale.setScalar(planetConfig.scale);
+          
+          // Position in orbit
+          model.position.x = planetConfig.distance;
+          model.position.y = 0;
+          model.position.z = -0.8;
+          
+          // Store user data
+          model.userData = {
+            name: planetConfig.name,
+            originalDistance: planetConfig.distance,
+            speed: planetConfig.speed,
+            angle: Math.random() * Math.PI * 2,
+            info: planetConfig.info
+          };
+          
+          // Add click/tap interaction
+          model.userData.originalScale = planetConfig.scale;
+          model.userData.isScaled = false;
+          
+          // Add bounding box for interaction
+          const box = new THREE.Box3().setFromObject(model);
+          const size = box.getSize(new THREE.Vector3());
+          const radius = Math.max(size.x, size.y, size.z) * 0.5;
+          
+          const helper = new THREE.Mesh(
+            new THREE.SphereGeometry(radius * 1.5),
+            new THREE.MeshBasicMaterial({ 
+              visible: false,
+              transparent: true,
+              opacity: 0
+            })
+          );
+          helper.position.copy(model.position);
+          helper.userData = model.userData;
+          helper.add(model);
+          
+          scene.add(helper);
+          planetMeshes.push(helper);
+          
+          console.log(`Loaded: ${planetConfig.name}`);
+          resolve();
+        },
+        undefined,
+        (error) => {
+          console.error(`Error loading ${planetConfig.name}:`, error);
+          // Fallback to basic sphere if model fails to load
+          createFallbackPlanet(planetConfig);
+          resolve();
         }
-        
-        // Buat bintang di latar belakang
-        function createStars() {
-            const starGeometry = new THREE.BufferGeometry();
-            const starCount = 10000;
-            const positions = new Float32Array(starCount * 3);
-            const colors = new Float32Array(starCount * 3);
-            
-            for (let i = 0; i < starCount * 3; i += 3) {
-                // Posisi acak
-                positions[i] = (Math.random() - 0.5) * 3000;
-                positions[i + 1] = (Math.random() - 0.5) * 3000;
-                positions[i + 2] = (Math.random() - 0.5) * 3000;
-                
-                // Warna acak (kebanyakan putih, beberapa berwarna)
-                const rand = Math.random();
-                if (rand > 0.9) {
-                    colors[i] = 0.8 + Math.random() * 0.2;     // Merah
-                    colors[i + 1] = 0.5 + Math.random() * 0.2; // Hijau
-                    colors[i + 2] = 0.5 + Math.random() * 0.5; // Biru
-                } else if (rand > 0.8) {
-                    colors[i] = 1;     // Merah
-                    colors[i + 1] = 0.9; // Hijau
-                    colors[i + 2] = 0.7; // Biru (kuning)
-                } else {
-                    colors[i] = 1;     // Merah
-                    colors[i + 1] = 1; // Hijau
-                    colors[i + 2] = 1; // Biru (putih)
-                }
-            }
-            
-            starGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-            starGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-            
-            const starMaterial = new THREE.PointsMaterial({
-                size: 0.7,
-                vertexColors: true,
-                transparent: true
-            });
-            
-            const stars = new THREE.Points(starGeometry, starMaterial);
-            scene.add(stars);
-        }
-        
-        // Muat model planet
-        async function loadPlanets() {
-            const loader = new THREE.GLTFLoader();
-            let loadedCount = 0;
-            const totalPlanets = planetsConfig.length;
-            
-            // Update loading text
-            const loadingElement = document.getElementById('loading');
-            
-            for (const config of planetsConfig) {
-                let planetObject;
-                const modelPath = modelPaths[config.name];
-                
-                // Tampilkan status loading
-                loadingElement.textContent = `Memuat ${config.name}... (${loadedCount+1}/${totalPlanets})`;
-                
-                try {
-                    if (modelPath) {
-                        // Coba muat model GLB
-                        const gltf = await new Promise((resolve, reject) => {
-                            loader.load(
-                                modelPath,
-                                resolve,
-                                undefined,
-                                reject
-                            );
-                        });
-                        
-                        planetObject = gltf.scene;
-                        planetObject.scale.set(config.scale, config.scale, config.scale);
-                        
-                        // Jika ada animasi, tambahkan ke mixer
-                        if (gltf.animations && gltf.animations.length) {
-                            if (!mixer) mixer = new THREE.AnimationMixer(scene);
-                            const action = mixer.clipAction(gltf.animations[0]);
-                            action.play();
-                        }
-                        
-                        console.log(`Model ${config.name} berhasil dimuat`);
-                    }
-                } catch (error) {
-                    console.warn(`Model ${config.name} tidak ditemukan, menggunakan versi sederhana:`, error);
-                    // Tidak perlu ditampilkan ke user
-                }
-                
-                // Jika model tidak dimuat, buat versi sederhana
-                if (!planetObject) {
-                    planetObject = createFallbackPlanet(config);
-                    console.log(`Membuat planet sederhana untuk ${config.name}`);
-                }
-                
-                // Setup planet
-                setupPlanet(planetObject, config);
-                loadedCount++;
-            }
-            
-            // Semua planet telah dimuat
-            loadingElement.textContent = 'Sistem tata surya siap!';
-            console.log(`Semua planet telah dimuat: ${loadedCount}/${totalPlanets}`);
-        }
-        
-        // Setup planet yang telah dimuat
-        function setupPlanet(planetObject, config) {
-            // Tambahkan metadata
-            planetObject.userData.isPlanet = true;
-            planetObject.userData.planetInfo = {
-                name: config.name,
-                displayName: config.name.charAt(0).toUpperCase() + config.name.slice(1),
-                description: getPlanetDescription(config.name),
-                color: config.color
-            };
-            
-            // Beri nama untuk debugging
-            planetObject.name = config.name;
-            
-            // Buat orbit (kecuali matahari)
-            if (config.orbitRadius > 0) {
-                const orbitGeometry = new THREE.RingGeometry(config.orbitRadius - 0.3, config.orbitRadius + 0.3, 128);
-                const orbitMaterial = new THREE.MeshBasicMaterial({ 
-                    color: 0x4488FF, 
-                    side: THREE.DoubleSide,
-                    transparent: true,
-                    opacity: 0.2
-                });
-                const orbit = new THREE.Mesh(orbitGeometry, orbitMaterial);
-                orbit.rotation.x = Math.PI / 2;
-                orbit.name = `${config.name}-orbit`;
-                orbit.visible = showOrbits;
-                scene.add(orbit);
-                orbits.push(orbit);
-                
-                // Posisikan planet di orbitnya
-                const angle = Math.random() * Math.PI * 2;
-                planetObject.position.x = Math.cos(angle) * config.orbitRadius;
-                planetObject.position.z = Math.sin(angle) * config.orbitRadius;
-            } else {
-                // Matahari di pusat
-                planetObject.position.set(0, 0, 0);
-            }
-            
-            // Simpan konfigurasi di userData untuk animasi
-            planetObject.userData.config = config;
-            planetObject.userData.orbitAngle = Math.random() * Math.PI * 2;
-            
-            // Tambahkan planet ke scene
-            scene.add(planetObject);
-            
-            // Simpan referensi planet
-            planets.push(planetObject);
-        }
-        
-        // Dapatkan deskripsi planet
-        function getPlanetDescription(planetName) {
-            const descriptions = {
-                matahari: 'Bintang di pusat tata surya kita. Diameter: 1,4 juta km. Suhu inti: 15 juta °C.',
-                merkurius: 'Planet terkecil (4.880 km) dan terdekat dengan matahari. Suhu: -173°C hingga 427°C.',
-                venus: 'Planet terpanas (462°C) dengan atmosfer tebal CO₂. Rotasi retrograde (berlawanan arah).',
-                bumi: 'Planet ketiga (12.742 km). Satu-satunya planet yang diketahui memiliki kehidupan.',
-                mars: 'Planet merah (6.779 km) dengan gunung tertinggi: Olympus Mons (21,9 km).',
-                jupiter: 'Planet terbesar (139.820 km). Memiliki 79 bulan. Bintik Merah Raksasa adalah badai raksasa.',
-                saturnus: 'Planet dengan sistem cincin paling mencolok (116.460 km). Memiliki 82 bulan.',
-                uranus: 'Planet es raksasa (50.724 km). Sumbu rotasi miring 98° (seolah berbaring).',
-                neptunus: 'Planet terjauh (49.244 km). Angin tercepat: 2.100 km/jam. Warna biru dari metana.'
-            };
-            
-            return descriptions[planetName] || 'Planet dalam tata surya kita.';
-        }
-        
-        // Tangani klik pada canvas
-        function onCanvasClick(event) {
-            if (currentXRMode) return; // Tidak perlu di mode VR
-            
-            updateMousePosition(event);
-            
-            raycaster.setFromCamera(mouse, camera);
-            const intersects = raycaster.intersectObjects(planets, true);
-            
-            if (intersects.length > 0) {
-                const clickedObject = intersects[0].object;
-                let planetObject = clickedObject;
-                
-                // Cari objek planet utama (bisa jadi bagian dari group)
-                while (planetObject.parent && !planetObject.userData.isPlanet) {
-                    planetObject = planetObject.parent;
-                }
-                
-                if (planetObject.userData.isPlanet) {
-                    showPlanetInfo(planetObject);
-                    
-                    // Highlight planet
-                    highlightPlanet(planetObject);
-                }
-            }
-        }
-        
-        // Update posisi mouse
-        function updateMousePosition(event) {
-            const rect = renderer.domElement.getBoundingClientRect();
-            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-        }
-        
-        // Tangani mouse move untuk hover effect
-        function onMouseMove(event) {
-            if (currentXRMode) return;
-            
-            updateMousePosition(event);
-            
-            raycaster.setFromCamera(mouse, camera);
-            const intersects = raycaster.intersectObjects(planets, true);
-            
-            // Reset cursor
-            renderer.domElement.style.cursor = 'auto';
-            
-            if (intersects.length > 0) {
-                renderer.domElement.style.cursor = 'pointer';
-            }
-        }
-        
-        // Tampilkan info planet
-        function showPlanetInfo(planetObject) {
-            const info = planetObject.userData.planetInfo;
-            document.getElementById('planetName').textContent = info.displayName;
-            document.getElementById('planetDescription').textContent = info.description;
-            
-            const planetInfoElement = document.getElementById('planetInfo');
-            planetInfoElement.classList.add('active');
-            
-            // Hilangkan info setelah 7 detik
-            setTimeout(() => {
-                planetInfoElement.classList.remove('active');
-            }, 7000);
-        }
-        
-        // Highlight planet sementara
-        function highlightPlanet(planetObject) {
-            // Simpan material asli jika belum disimpan
-            if (!planetObject.userData.originalMaterial) {
-                planetObject.traverse((child) => {
-                    if (child.isMesh) {
-                        child.userData.originalMaterial = child.material;
-                    }
-                });
-            }
-            
-            // Buat material highlight
-            const highlightMaterial = new THREE.MeshBasicMaterial({
-                color: 0x00FF00,
-                wireframe: true
-            });
-            
-            // Terapkan highlight
-            planetObject.traverse((child) => {
-                if (child.isMesh) {
-                    child.material = highlightMaterial;
-                }
-            });
-            
-            // Kembalikan ke material asli setelah 1 detik
-            setTimeout(() => {
-                planetObject.traverse((child) => {
-                    if (child.isMesh && child.userData.originalMaterial) {
-                        child.material = child.userData.originalMaterial;
-                    }
-                });
-            }, 1000);
-        }
-        
-        // Animasi
-        function animate() {
-            requestAnimationFrame(animate);
-            
-            const delta = clock.getDelta();
-            
-            // Update mixer animasi
-            if (mixer) {
-                mixer.update(delta);
-            }
-            
-            // Animasi rotasi dan orbit planet
-            planets.forEach(planetObject => {
-                const config = planetObject.userData.config;
-                
-                if (config) {
-                    // Rotasi planet pada sumbunya
-                    planetObject.rotation.y += config.rotationSpeed;
-                    
-                    // Orbit mengelilingi matahari (kecuali matahari sendiri)
-                    if (config.orbitRadius > 0) {
-                        planetObject.userData.orbitAngle += config.orbitSpeed * delta * 10;
-                        planetObject.position.x = Math.cos(planetObject.userData.orbitAngle) * config.orbitRadius;
-                        planetObject.position.z = Math.sin(planetObject.userData.orbitAngle) * config.orbitRadius;
-                        
-                        // Sedikit variasi vertikal untuk orbit yang lebih natural
-                        planetObject.position.y = Math.sin(planetObject.userData.orbitAngle * 0.5) * 0.5;
-                    }
-                }
-            });
-            
-            // Update controls
-            if (!currentXRMode) {
-                controls.autoRotate = autoRotate;
-                controls.update();
-            }
-            
-            // Render scene
-            renderer.render(scene, camera);
-        }
-        
-        // Toggle mode VR/AR
-        function toggleVR() {
-            if (currentXRMode) {
-                // Keluar dari XR
-                if (renderer.xr.isPresenting) {
-                    renderer.xr.getSession().end();
-                }
-                currentXRMode = false;
-                controls.enabled = true;
-                document.getElementById('vrButton').textContent = 'Mode VR';
-                document.getElementById('vrButton').classList.remove('vr-mode');
-                document.getElementById('status').textContent = 'Mode: Desktop';
-            } else {
-                // Masuk ke XR
-                if (navigator.xr) {
-                    navigator.xr.requestSession('immersive-vr').then((session) => {
-                        session.addEventListener('end', onXRSessionEnded);
-                        renderer.xr.setSession(session);
-                        currentXRMode = true;
-                        controls.enabled = false;
-                        document.getElementById('vrButton').textContent = 'Keluar VR';
-                        document.getElementById('vrButton').classList.add('vr-mode');
-                        document.getElementById('status').textContent = 'Mode: VR';
-                    }).catch((err) => {
-                        console.error('XR session failed:', err);
-                        alert('Mode VR tidak tersedia di perangkat ini. Coba gunakan browser terbaru seperti Chrome atau Firefox.');
-                    });
-                } else {
-                    alert('WebXR tidak didukung di browser ini. Coba gunakan browser terbaru seperti Chrome atau Firefox.');
-                }
-            }
-        }
-        
-        // Tangani akhir sesi XR
-        function onXRSessionEnded() {
-            currentXRMode = false;
-            controls.enabled = true;
-            document.getElementById('vrButton').textContent = 'Mode VR';
-            document.getElementById('vrButton').classList.remove('vr-mode');
-            document.getElementById('status').textContent = 'Mode: Desktop';
-        }
-        
-        // Toggle rotasi otomatis
-        function toggleAutoRotate() {
-            autoRotate = !autoRotate;
-            document.getElementById('autoRotate').textContent = `Rotasi: ${autoRotate ? 'ON' : 'OFF'}`;
-        }
-        
-        // Reset tampilan kamera
-        function resetView() {
-            controls.reset();
-            camera.position.set(0, 40, 120);
-            controls.update();
-        }
-        
-        // Toggle tampilan orbit
-        function toggleOrbits() {
-            showOrbits = !showOrbits;
-            orbits.forEach(orbit => {
-                orbit.visible = showOrbits;
-            });
-            document.getElementById('toggleOrbits').textContent = `Orbit: ${showOrbits ? 'ON' : 'OFF'}`;
-        }
-        
-        // Toggle mode debug
-        function toggleDebug() {
-            debugMode = !debugMode;
-            
-            // Tampilkan informasi di console
-            console.log(`Debug mode: ${debugMode ? 'ON' : 'OFF'}`);
-            console.log(`Jumlah planet: ${planets.length}`);
-            console.log(`Jumlah orbit: ${orbits.length}`);
-            
-            planets.forEach(planet => {
-                console.log(`Planet: ${planet.name}, Posisi: ${planet.position.x.toFixed(1)}, ${planet.position.y.toFixed(1)}, ${planet.position.z.toFixed(1)}`);
-            });
-            
-            document.getElementById('toggleDebug').textContent = `Debug: ${debugMode ? 'ON' : 'OFF'}`;
-        }
-        
-        // Tangani resize window
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        }
-        
-        // Inisialisasi aplikasi saat halaman dimuat
-        window.addEventListener('DOMContentLoaded', init);
-    </script>
+      );
+    });
+  }
+
+  // Fallback function if GLB fails to load
+  function createFallbackPlanet(planetConfig) {
+    const geometry = new THREE.SphereGeometry(planetConfig.scale, 32, 32);
+    const material = new THREE.MeshStandardMaterial({ 
+      color: getFallbackColor(planetConfig.name)
+    });
+    const mesh = new THREE.Mesh(geometry, material);
+    
+    mesh.position.x = planetConfig.distance;
+    mesh.userData = {
+      name: planetConfig.name,
+      originalDistance: planetConfig.distance,
+      speed: planetConfig.speed,
+      angle: Math.random() * Math.PI * 2,
+      info: planetConfig.info,
+      originalScale: planetConfig.scale,
+      isScaled: false
+    };
+    
+    scene.add(mesh);
+    planetMeshes.push(mesh);
+    console.log(`Created fallback for: ${planetConfig.name}`);
+  }
+
+  // Helper function for fallback colors
+  function getFallbackColor(planetName) {
+    const colors = {
+      'Mercury': 0x8c8c8c,
+      'Venus': 0xe6b87e,
+      'Earth': 0x6b93d6,
+      'Mars': 0xc1440e,
+      'Jupiter': 0xc19e6b,
+      'Saturn': 0xe3d2a6
+    };
+    return colors[planetName] || 0xffffff;
+  }
+
+  // Create galaxy with 3D models
+  async function createGalaxy() {
+    // === Central Star (Sun) ===
+    const sunGeometry = new THREE.SphereGeometry(0.15, 64, 64);
+    const sunMaterial = new THREE.MeshBasicMaterial({ 
+      color: 0xffcc00,
+      emissive: 0xffaa00,
+      emissiveIntensity: 0.8
+    });
+    sun = new THREE.Mesh(sunGeometry, sunMaterial);
+    sun.position.set(0, 0, -0.8);
+    scene.add(sun);
+
+    // Add glow effect to sun
+    const sunGlowGeometry = new THREE.SphereGeometry(0.18, 32, 32);
+    const sunGlowMaterial = new THREE.MeshBasicMaterial({
+      color: 0xff9900,
+      transparent: true,
+      opacity: 0.3
+    });
+    const sunGlow = new THREE.Mesh(sunGlowGeometry, sunGlowMaterial);
+    sun.add(sunGlow);
+
+    // === Load all planet models ===
+    const loadPromises = planets.map((planet, index) => 
+      loadPlanetModel(planet, index)
+    );
+    
+    await Promise.all(loadPromises);
+    console.log('All planets loaded');
+
+    // === Stars (Background) ===
+    const starGeometry = new THREE.BufferGeometry();
+    const starCount = 1000;
+    const positions = new Float32Array(starCount * 3);
+    
+    for (let i = 0; i < starCount * 3; i += 3) {
+      positions[i] = (Math.random() - 0.5) * 10;
+      positions[i + 1] = (Math.random() - 0.5) * 10;
+      positions[i + 2] = (Math.random() - 0.5) * 10;
+    }
+    
+    starGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    
+    const starMaterial = new THREE.PointsMaterial({
+      color: 0xffffff,
+      size: 0.02,
+      transparent: true
+    });
+    
+    const stars = new THREE.Points(starGeometry, starMaterial);
+    scene.add(stars);
+
+    // === Nebula Effect ===
+    const nebulaGeometry = new THREE.SphereGeometry(1.5, 32, 32);
+    const nebulaMaterial = new THREE.MeshBasicMaterial({
+      color: 0x4a0b7a,
+      transparent: true,
+      opacity: 0.1,
+      side: THREE.BackSide
+    });
+    const nebula = new THREE.Mesh(nebulaGeometry, nebulaMaterial);
+    scene.add(nebula);
+
+    return { sun, planetMeshes, stars };
+  }
+
+  // Lighting
+  const ambientLight = new THREE.AmbientLight(0x333333);
+  scene.add(ambientLight);
+
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+  directionalLight.position.set(5, 3, 5);
+  scene.add(directionalLight);
+
+  // Raycaster for interaction
+  const raycaster = new THREE.Raycaster();
+  const mouse = new THREE.Vector2();
+  let selectedPlanet = null;
+
+  // Handle click/tap
+  function onDocumentClick(event) {
+    event.preventDefault();
+    
+    // Calculate mouse position in normalized device coordinates
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+    
+    // Update the picking ray with the camera and mouse position
+    raycaster.setFromCamera(mouse, camera);
+    
+    // Calculate objects intersecting the picking ray
+    const intersects = raycaster.intersectObjects(planetMeshes);
+    
+    if (intersects.length > 0) {
+      const planet = intersects[0].object;
+      
+      // Reset previous selection
+      if (selectedPlanet && selectedPlanet !== planet) {
+        selectedPlanet.scale.setScalar(selectedPlanet.userData.originalScale);
+        selectedPlanet.userData.isScaled = false;
+      }
+      
+      // Toggle scale
+      if (planet.userData.isScaled) {
+        planet.scale.setScalar(planet.userData.originalScale);
+        planet.userData.isScaled = false;
+        document.getElementById('infoPanel').style.display = 'none';
+        selectedPlanet = null;
+      } else {
+        planet.scale.setScalar(planet.userData.originalScale * 1.5);
+        planet.userData.isScaled = true;
+        document.getElementById('infoPanel').style.display = 'block';
+        document.getElementById('infoPanel').innerHTML = `
+          <strong>${planet.userData.name}</strong><br>
+          ${planet.userData.info}
+        `;
+        selectedPlanet = planet;
+      }
+    } else {
+      // Clicked on empty space
+      if (selectedPlanet) {
+        selectedPlanet.scale.setScalar(selectedPlanet.userData.originalScale);
+        selectedPlanet.userData.isScaled = false;
+        document.getElementById('infoPanel').style.display = 'none';
+        selectedPlanet = null;
+      }
+    }
+  }
+
+  // Create the galaxy
+  const galaxy = await createGalaxy();
+
+  // Add event listener for clicks
+  window.addEventListener('click', onDocumentClick, false);
+
+  // Animation
+  renderer.setAnimationLoop(() => {
+    // Rotate sun
+    if (sun) sun.rotation.y += 0.005;
+    
+    // Animate planets in orbit
+    planetMeshes.forEach(planet => {
+      planet.userData.angle += planet.userData.speed;
+      planet.position.x = Math.cos(planet.userData.angle) * planet.userData.originalDistance;
+      planet.position.z = Math.sin(planet.userData.angle) * planet.userData.originalDistance - 0.8;
+      
+      // Rotate the model itself
+      planet.rotation.y += 0.01;
+    });
+    
+    renderer.render(scene, camera);
+  });
+
+  // Handle window resize
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+</script>
 </body>
 </html>
